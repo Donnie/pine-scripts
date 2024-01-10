@@ -1,0 +1,80 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+// 116.48% on NASDAQ100 34 trades 100% profit
+
+//@version=5
+strategy("Pyramid", overlay=true, pyramiding=1, initial_capital=12800, default_qty_value=1, default_qty_type=strategy.fixed, close_entries_rule="ANY")
+
+//=== INPUTS ===
+buyPer		= input.float	(0.5, 									"Buy Percent",         		group= "Trade",			tooltip= "Need to adjust it acc. to volatility and price")
+sellPer 	= input.float	(2.5, 									"Sell Percent",        		group= "Trade",			tooltip= "Need to adjust it acc. to volatility and price")
+start		= input.time	(timestamp("01 Jan 2021 00:00 +0000"),	"Start Time",				group= "Trade")
+finish		= input.time	(timestamp("01 Jan 2023 00:00 +0000"),	"End Time",					group= "Trade")
+enterMax 	= input.int		(200, 									"Enter after max (bars)",	group= "Trade")
+safety		= input.float	(0,										"Use safety",				group= "Trade")
+buyInc		= input.bool	(false,									"Increase Buy %",			group= "Trade")
+
+//=== FUNCTIONS ===
+safeTrade(period) =>
+	hi = ta.highest(high, period)
+	lo = ta.lowest(low, period)
+	rng = hi-lo
+	hi - (rng*safety)
+
+//=== VARIABLES ===
+safetySig				= safeTrade(100)
+safetyLong				= safety > 0 ? safetySig > close : true
+
+buyPct					= buyInc ? (strategy.opentrades + 1) * buyPer : buyPer
+
+window					= time >= start and time <= finish
+inTrade					= strategy.opentrades > 0
+justStarted				= strategy.closedtrades == 0 and strategy.opentrades == 0
+
+lastOpenEntryPrice		= strategy.opentrades.entry_price(strategy.opentrades - 1)
+lastClosedEntryPrice	= strategy.closedtrades.entry_price(strategy.closedtrades - 1)
+
+lastBuyPrice			= inTrade ? lastOpenEntryPrice : lastClosedEntryPrice
+lastSellPrice			= strategy.closedtrades.exit_price(strategy.closedtrades - 1)
+
+lastPrice				= justStarted ? close : inTrade ? lastOpenEntryPrice : lastSellPrice
+
+buy						= lastPrice - (lastPrice * buyPct / 100)
+sell					= lastBuyPrice + (lastBuyPrice * sellPer / 100)
+
+long					= buy > close
+
+lastSellIndex			= strategy.closedtrades.exit_bar_index(strategy.closedtrades - 1)
+longTimeNoTrade			= ((bar_index - lastSellIndex) > enterMax) and not inTrade
+
+id						= "Long "+str.tostring(bar_index)
+
+//=== FUNCTIONS ===
+
+//=== STRATEGY ===
+if window and safetyLong
+	if (justStarted or longTimeNoTrade)
+		strategy.entry(id, strategy.long)
+		strategy.exit(id, id, limit=(close*(1 + sellPer/100)))
+
+	if not justStarted 
+		if long
+			strategy.entry(id, strategy.long)
+			strategy.exit(id, id, limit=(close*(1 + sellPer/100)))
+
+//=== VISUALS ===
+bgcolor(color=inTrade ? color.new(color.red, 80) : color.new(color.green, 80), title="Session")
+
+plot(sell,				color=color.new(color.yellow,0),					title="Sell")
+plot(buy,				color=color.new(color.green,0),						title="Buy")
+
+
+//=== IDEAS ===
+// if pyramiding is less then we can compensate by closing at loss
