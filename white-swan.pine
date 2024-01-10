@@ -1,0 +1,35 @@
+//@version=5
+indicator("White Swan moment", overlay=true)
+
+// Define some technical indicators
+rsiValue = ta.rsi(close, 14)
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+sma50 = ta.sma(close, 50)
+sma200 = ta.sma(close, 200)
+wait = 20
+
+// Fetch VIX data
+vixClose = request.security("TVC:VIX", "D", close)
+vixDrop = vixClose - vixClose[1]
+
+// Conditions
+cond1 = rsiValue < 30
+cond2 = macdLine > signalLine
+cond3 = close > sma50
+cond4 = close < sma200
+
+// Condition for VIX drop
+condVix = vixDrop > 2
+
+// Count the bars since each condition was last true
+barsSinceCond1 = ta.barssince(cond1)
+barsSinceCond2 = ta.barssince(cond2)
+barsSinceCond3 = ta.barssince(cond3)
+barsSinceCond4 = ta.barssince(cond4)
+barsSinceCondVix = ta.barssince(condVix)
+
+// Check if all conditions are met within the 'wait' period
+allConditionsMetWithinWait = barsSinceCond1 <= wait and barsSinceCond2 <= wait and barsSinceCond3 <= wait and barsSinceCond4 <= wait and barsSinceCondVix <= wait
+
+// Plot triangle when all conditions are met within the defined period
+plotshape(allConditionsMetWithinWait, style=shape.triangleup, location=location.belowbar, color=color.white, size=size.small)
