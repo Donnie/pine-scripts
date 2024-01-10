@@ -1,0 +1,70 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+// NASDAQ100 27.93% 23 100%
+
+//@version=5
+strategy("Dip Finder", overlay=true, pyramiding=1, initial_capital=12800, default_qty_value=1, default_qty_type=strategy.fixed)
+
+buyPer		= input.float	(1, 									"Buy Gap (%)",         		group= "Trade",			tooltip= "Need to adjust it acc. to volatility and price")
+start		= input.time	(timestamp("01 Jan 2021 00:00 +0000"),	"Start Time",				group= "Trade")
+finish		= input.time	(timestamp("01 Jan 2023 00:00 +0000"),	"End Time",					group= "Trade")
+
+//=== VARIABLES ===
+inTrade					= strategy.opentrades > 0
+lastOpenEntryPrice		= strategy.opentrades.entry_price(strategy.opentrades - 1)
+buyGap					= inTrade ? (lastOpenEntryPrice * (1 - buyPer/100)) > close : true
+
+window					= time >= start and time <= finish
+closeHighs				= high
+closeHighs				:= closeHighs[1] > close ? closeHighs[1] : close
+
+emaLow5					= ta.ema(low, 5)
+emaLow9					= ta.ema(low, 9)
+emaLow20				= ta.ema(low, 20)
+emaLow50				= ta.ema(low, 50)
+emaLow100				= ta.ema(low, 100)
+emaLow150				= ta.ema(low, 150)
+emaLow200				= ta.ema(low, 200)
+emaLow250				= ta.ema(low, 250)
+emaLow500				= ta.ema(low, 500)
+emaLow					= array.from(emaLow5, emaLow9, emaLow20, emaLow50, emaLow100, emaLow150, emaLow200, emaLow250, emaLow500)
+emaLowMerged			= array.min(emaLow)
+
+emaHigh5				= ta.ema(high, 5)
+emaHigh9				= ta.ema(high, 9)
+emaHigh20				= ta.ema(high, 20)
+emaHigh50				= ta.ema(high, 50)
+emaHigh100				= ta.ema(high, 100)
+emaHigh150				= ta.ema(high, 150)
+emaHigh200				= ta.ema(high, 200)
+emaHigh250				= ta.ema(high, 250)
+emaHigh500				= ta.ema(high, 500)
+emaHigh					= array.from(emaHigh5, emaHigh9, emaHigh20, emaHigh50, emaHigh100, emaHigh150, emaHigh200, emaHigh250, emaHigh500)
+emaHighMerged			= array.max(emaHigh)
+
+//=== STRATEGY ===
+longen				= ta.crossover(close, emaLowMerged)
+shorten				= close == closeHighs
+
+if window
+	if (longen and buyGap)
+		strategy.entry("Long", strategy.long)
+
+	if (shorten)
+		strategy.close("Long")
+
+if (not window)
+	strategy.close_all()
+
+//=== VISUALS ===
+bgcolor(color=inTrade ? color.new(color.red,80) : color.new(color.green,80), title="Session")
+plot(emaLowMerged,		color=color.new(color.yellow,0),					title="EMA Low Merged")
+plot(closeHighs,		color=color.new(color.lime,0),						title="Close Highs")
+plot(emaHighMerged,		color=color.new(color.fuchsia,0),					title="EMA High Merged")
