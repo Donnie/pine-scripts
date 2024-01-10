@@ -1,0 +1,47 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+//@version=5
+strategy("US500 Long", overlay=true, pyramiding=30, initial_capital=6000, currency=currency.EUR, commission_value=0, commission_type=strategy.commission.percent)
+
+//
+quantity   = input.int(defval = 1,       title = "Quantity",    minval = 1,   maxval = 10000)
+profit     = input.int(defval = 500,     title = "Profit",      minval = 1,   maxval = 100000)
+bullfactor = input.float(defval = 0.8,   title = "Bull Factor", minval = 0.1, maxval = 2)
+
+// === INPUT BACKTEST RANGE ===
+start  = input.time(defval = timestamp("01 Jan 2020 00:00 +0000"), title = "Start Time")
+finish = input.time(defval = timestamp("01 Jan 2022 00:00 +0000"), title = "End Time")
+
+// === FUNCTION EXAMPLE ===
+window()  => time >= start and time <= finish ? true : false
+
+hiMo = request.security(syminfo.tickerid, '21D', high, lookahead = barmerge.lookahead_off)
+loMo = request.security(syminfo.tickerid, '21D', low, lookahead = barmerge.lookahead_off)
+hiLoMo = (hiMo - loMo)
+monthrangebuy = hiMo - (hiLoMo * bullfactor * 0.8)
+
+hiWk = request.security(syminfo.tickerid, '5D', high, lookahead = barmerge.lookahead_off)
+loWk = request.security(syminfo.tickerid, '5D', low, lookahead = barmerge.lookahead_off)
+hiLoWk = (hiWk - loWk)
+weekrangebuy = hiWk - (hiLoWk * bullfactor * 0.999)
+
+hiDay = request.security(syminfo.tickerid, '20', high)
+loDay = request.security(syminfo.tickerid, '20', low)
+hiLoDay = (hiDay - loDay)
+dayrangebuy = hiDay - (hiLoDay * bullfactor * 0.9)
+
+//  and monthrangebuy > close[1]
+longCondition = (weekrangebuy > close)
+
+buysense = strategy.position_size > 0 ? ((strategy.position_avg_price * 0.95) > close) : true
+
+// 1 qty refers to 100 * 10
+if (longCondition and buysense and window())
+    // str.tostring(monthrangebuy) + " " + str.tostring(weekrangebuy)+ " " + str.tostring(dayrangebuy) + " " + str.tostring(close)+" "+
+    strategy.entry("Long", strategy.long, stop=(dayrangebuy*0.95), qty=quantity, comment=str.tostring(strategy.position_size+1))
+
+strategy.exit("long", "Long", profit = profit, comment=str.tostring(strategy.position_size-1))
+
+if (not window())
+    strategy.close_all()
