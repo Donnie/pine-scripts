@@ -1,0 +1,56 @@
+// DAX40 54.94% on 13400 1252 Trades 36.74% 2020-2022
+
+//@version=5
+strategy("Volatility Stop", overlay=true, initial_capital=13400, commission_value=0, commission_type=strategy.commission.percent, default_qty_type=strategy.fixed, default_qty_value=1)
+
+//=== INPUTS ===
+start			= input.time	(timestamp("01 Jan 2020 00:00 +0000"),	"Start Time")
+finish			= input.time	(timestamp("01 Jan 2022 00:00 +0000"),	"End Time")
+multiple		= input.int		(1,										"Multiple ATR")
+
+goLong          = input.bool	(true,									"Go Long",              group= "Trade")
+goShort         = input.bool	(true,									"Go Short",             group= "Trade")
+
+//=== GLOBALS ===
+window			= time >= start and time <= finish
+atr14			= ta.atr(14)
+
+max_			= 0.0
+min_			= 0.0
+is_uptrend		= false
+vstop			= 0.0
+
+max1				= math.max(nz(max_[1]), close)
+min1				= math.min(nz(min_[1]), close)
+
+is_uptrend_prev 	= nz(is_uptrend[1], true)
+stop				= is_uptrend_prev ? max1 - (multiple * atr14) : min1 + (multiple * atr14)
+vstop_prev			= nz(vstop[1])
+vstop1				= is_uptrend_prev ? math.max(vstop_prev, stop) : math.min(vstop_prev, stop)
+is_uptrend 			:= close - vstop1 >= 0
+is_trend_changed	= is_uptrend != is_uptrend_prev
+
+max_				:= is_trend_changed ? close : max1
+min_				:= is_trend_changed ? close : min1
+vstop				:= is_trend_changed ? is_uptrend ? max_ - (multiple * atr14) : min_ + (multiple * atr14) : vstop1
+
+//=== STRATEGY ===
+bearish = close < vstop
+bullish = close > vstop
+
+if window
+	if (bullish and goLong)
+		strategy.entry("long", strategy.long, comment="Go Long")
+
+	if (bearish and goShort)
+		strategy.entry("short", strategy.short, comment="Go Short")
+
+strategy.close("long", comment="Exit Long", when=bearish)
+strategy.close("short", comment="Exit Short", when=bullish)
+
+//=== VISUALS ===
+backColor		= bearish ? color.new(color.red,80) : bullish ? color.new(color.green,80) : color.new(color.green,100)
+bgcolor(		color=backColor,						title="Session")
+
+plotColor		= is_uptrend ? color.new(color.red,0) : color.new(color.green,0)
+plot(vstop,		color=plotColor,						title="Volatility Stop")
