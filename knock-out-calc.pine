@@ -1,0 +1,28 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+//@version=5
+indicator("Knock Out Calculator", shorttitle="KNC", precision=3)
+
+//=== INPUTS ===
+longStrike	= input.float		(13600,		"Strike Price (Long)",		group= "Input")
+shortStrike	= input.float		(16490,		"Strike Price (Short)",		group= "Input")
+ratio		= input.int		(100,		"Ratio",					group= "Input")
+shortColor	= input.color	(#ff9800,	"Color (Short)",			group= "Input")
+longColor	= input.color	(#98ff00,	"Color (Long)",				group= "Input")
+
+certPrice(knockOut, assetPrice, ratio) =>
+	math.max((knockOut-assetPrice)/ratio, 0)
+
+longPrice = certPrice(close, longStrike, ratio)
+shortPrice = certPrice(shortStrike, close, ratio)
+
+plot(longPrice, color=shortColor)
+plot(shortPrice, color=longColor)
