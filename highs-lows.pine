@@ -1,0 +1,76 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+// Works best with NASDAQ100 and DAX40 on 1 hour periods
+// DAX 160 80 40
+// NASDAQ100 160 40 20
+
+//@version=5
+strategy("Highs and Lows", overlay=true, pyramiding=1, initial_capital=13400, default_qty_value=1, default_qty_type=strategy.fixed)
+
+//=== INPUTS ===
+takeProfit	= input.int (5,										"Min Profit (Cash)",		group= "Trade")
+buyGap		= input.int (10,									"Pyramid Gap (Cash)",		group= "Trade",			minval = 1,			maxval = 10000)
+start		= input.time(timestamp("01 Jan 2021 00:00 +0000"),	"Start Time",				group= "Trade")
+finish		= input.time(timestamp("01 Jan 2023 00:00 +0000"),	"End Time",					group= "Trade")
+
+large		= input.int (120,									"Large Period",				group= "Periods") // 2 weeks
+medium		= input.int (48,									"Medium Period",			group= "Periods") // 1 week
+small		= input.int (24,									"Small Period",				group= "Periods") // 1 day
+
+//=== GLOBALS ===
+rsi14					= ta.rsi(close, 14)
+
+//=== FUNCTIONS ===
+safeTrade(period) =>
+	rsi_ = rsi14/100
+	hi = ta.highest(high, period)
+	lo = ta.lowest(low, period)
+	rng = hi-lo
+	lo + (rng*rsi_)
+
+//=== VARIABLES ===
+window					= time >= start and time <= finish
+closeHighs				= high
+closeHighs				:= closeHighs[1] > close ? closeHighs[1] : close
+
+largeSig				= safeTrade(large)
+mediumSig				= safeTrade(medium)
+smallSig				= safeTrade(small)
+
+signals					= array.from(largeSig, mediumSig, smallSig)
+buySigLine				= array.min(signals)
+sellSigLine				= array.max(signals)
+
+inTrade					= strategy.opentrades > 0
+profitPerTrade			= strategy.openprofit / strategy.opentrades
+lastEntryPrice			= strategy.opentrades.entry_price(strategy.opentrades - 1)
+buyGapIsMaintained		= inTrade ? (lastEntryPrice - close) > buyGap : true
+profitReached			= profitPerTrade > takeProfit
+
+//=== VISUALS ===
+bgcolor(color=inTrade ? color.new(color.red,80) : color.new(color.green,80), title="Session")
+plot(closeHighs,	color=color.new(color.lime,0),							title="Close Highs")
+plot(sellSigLine,	color=color.new(color.yellow,0),						title="Close Highs")
+plot(buySigLine,	color=color.new(color.fuchsia,0),						title="Signal")
+
+//=== STRATEGY ===
+shortCondition			= (ta.crossover(close, sellSigLine)) and profitReached
+longCondition			= (ta.crossover(close, buySigLine)) and buyGapIsMaintained
+
+if window
+	if (longCondition)
+		strategy.entry("Long", strategy.long)
+
+	if (shortCondition)
+		strategy.close("Long")
+
+if (not window)
+	strategy.close_all()
