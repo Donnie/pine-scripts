@@ -1,0 +1,36 @@
+//@version=5
+// Step 1) Define strategy settings
+strategy(title='VIX Reversal', overlay=true, pyramiding=10, initial_capital=100000, scale=scale.left, default_qty_type=strategy.fixed, default_qty_value=10, commission_type=strategy.commission.cash_per_order, commission_value=8, slippage=2)
+
+// Input options for moving averages
+fastMALen = input(title='Fast EMA Length', defval=5)
+slowMALen = input(title='Slow SMA Length', defval=20)
+
+// Step 2) Calculate strategy values
+// Fetch VIX data
+vixData = request.security('CBOE:VIX', 'D', close)
+
+// Calculate moving averages
+fastSMA = ta.hma(vixData, fastMALen)
+slowSMA = ta.sma(vixData, slowMALen)
+
+// Step 3) Output strategy data
+plot(series=fastSMA, color=color.new(color.teal, 0), title='VIX Fast SMA')
+plot(series=slowSMA, color=color.new(color.green, 0), title='VIX Slow SMA')
+
+// Step 4) Determine long trading conditions
+// VIX was above 30 but has started to fall since five periods
+enterLong = fastSMA[5] > 25 and (ta.falling(slowSMA, 5) or ta.falling(fastSMA, 10))
+// VIX was below 18 but has started to rise since five periods
+exitLong = slowSMA[5] < 20 and ta.rising(slowSMA, 10)
+
+// Step 6) Submit entry orders
+if enterLong
+    strategy.entry("long", strategy.long, comment="Entry Long")
+
+// Step 7) Send exit orders
+//if exitLong
+	//strategy.entry("short", strategy.short, comment="Entry Short")
+
+//strategy.close("short", comment="Exit Short", when=enterLong)
+strategy.close("long", comment="Exit Long", when=exitLong)
