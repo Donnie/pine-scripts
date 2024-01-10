@@ -1,0 +1,25 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+//@version=5
+indicator("Normalized Average True Range", shorttitle="NATR", precision=3)
+
+natr(period) =>
+	natr_ = (ta.atr(period) / close) * 100
+	invNatr_ = 1-natr_
+	[natr_, invNatr_]
+
+[shortNatr, shortInvNatr] = natr(40)
+[mediumNatr, mediumInvNatr] = natr(80)
+[longNatr, longInvNatr] = natr(160)
+
+plot(shortNatr, color=#ff9800)
+plot(mediumNatr, color=#98ff00)
+plot(longNatr, color=#00ff98)
