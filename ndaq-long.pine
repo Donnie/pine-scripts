@@ -1,0 +1,46 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+//Version 60 highest 5.27%
+
+//@version=5
+strategy("NDAQ Long", overlay=true, pyramiding=1, initial_capital=13000)
+
+// Inputs
+quantity   = 1
+profit     = input.int(defval = 5000,   title = "Min Profit",  minval = 1,   maxval = 100000)
+bullfactor = input.float(defval = 0.999,  title = "Bull Factor", minval = 0.1, maxval = 2)
+
+// === INPUT BACKTEST RANGE ===
+start  = input.time(defval = timestamp("01 Jan 2021 00:00 +0000"), title = "Start Time")
+finish = input.time(defval = timestamp("01 Jan 2022 00:00 +0000"), title = "End Time")
+
+// === FUNCTION EXAMPLE ===
+window()  => time >= start and time <= finish ? true : false
+
+hiMo = request.security('NDX', '21D', high, lookahead = barmerge.lookahead_off)
+loMo = request.security('NDX', '21D', low, lookahead = barmerge.lookahead_off)
+hiLoMo = (hiMo - loMo)
+monthrangebuy = hiMo - (hiLoMo * 0.3)
+
+hiWk = ta.highest(close, 2400)
+loWk = ta.lowest(close, 2400)
+hiLoWk = (hiWk - loWk)
+weekrangebuy = hiWk - (hiLoWk * 0.3)
+
+hiDay = ta.highest(close, 480)
+loDay = ta.lowest(close, 480)
+hiLoDay = (hiDay - loDay)
+dayrangebuy = hiDay - (hiLoDay * bullfactor)
+
+//buysense = strategy.position_size > 0 ? ((strategy.position_avg_price * 0.98) > close) : true
+
+longCondition = (dayrangebuy > close and weekrangebuy > close and monthrangebuy > close)
+
+if (longCondition and window())
+    strategy.entry("Long", strategy.long, stop=(dayrangebuy*0.95), qty=quantity, comment=str.tostring(strategy.position_size+1))
+
+strategy.exit("long", "Long", profit = profit, loss=(profit/2), comment=str.tostring(strategy.position_size-1))
+
+if (not window())
+    strategy.close_all()
