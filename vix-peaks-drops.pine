@@ -1,0 +1,15 @@
+//@version=5
+indicator("VIX Peaks and Drops", overlay=true)
+
+// Define the absolute drop to detect. For example, 2 pts.
+absolute_drop = 2
+
+// Detect a peak: current value is higher than previous and next day
+is_peak = ta.crossover(close, close[1]) and ta.crossunder(close, close[1])
+
+// Detect a significant drop: current value is less than (100-percent_drop)% of the previous day
+is_drop = close < close[1] - absolute_drop
+
+// Plot shapes on the chart when conditions are met
+plotshape(is_peak, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(is_drop, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
