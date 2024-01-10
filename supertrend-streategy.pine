@@ -1,0 +1,17 @@
+//@version=5
+strategy("Supertrend Strategy", overlay=true, pyramiding=1, initial_capital=14000, currency=currency.EUR, commission_value=0, commission_type=strategy.commission.percent)
+
+atrPeriod = input(10, "ATR Length")
+factor = input.float(2.0, "Factor", step = 0.01)
+
+[_, direction] = ta.supertrend(factor, atrPeriod)
+
+if ta.change(direction) < 0
+    strategy.entry("Long", strategy.long, qty=1)
+    strategy.exit("short","Short", profit=1500)
+
+if ta.change(direction) > 0
+    strategy.entry("Short", strategy.short, qty=1)
+    strategy.exit("long","Long", profit=1500)
+
+//plot(strategy.equity, title="equity", color=color.red, linewidth=2, style=plot.style_areabr)
