@@ -1,0 +1,87 @@
+// ██████╗░░█████╗░███╗░░██╗███╗░░██╗██╗███████╗
+// ██╔══██╗██╔══██╗████╗░██║████╗░██║██║██╔════╝
+// ██║░░██║██║░░██║██╔██╗██║██╔██╗██║██║█████╗░░
+// ██║░░██║██║░░██║██║╚████║██║╚████║██║██╔══╝░░
+// ██████╔╝╚█████╔╝██║░╚███║██║░╚███║██║███████╗
+// ╚═════╝░░╚════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚═╝╚══════╝
+
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © donnieashok
+
+// @version=5
+strategy(title="MACD RSI Strategy", initial_capital=13400, default_qty_value=1, pyramiding=0, overlay=true)
+
+// ================================== //
+// ---------> User Input <----------- //
+// ================================== //
+
+// Date Range
+start           =  input.time      (timestamp("01 Jan 2021"),          title= "Start Time",     group= "Date")
+finish          =  input.time      (timestamp("01 Jan 2022"),          title= "End Time",       group= "Date")
+
+// Trade
+goLong          =  input.bool      (true,       "Go Long",              group= "Trade")
+goShort         =  input.bool      (true,       "Go Short",             group= "Trade")
+lookback        =  input.int       (5,          "Lookback Bars",        group= "Trade")
+
+// Risk Management
+sellOnProfit    =  input.bool      (true,       "Sell on Profit",       group= "Risk")
+profitAmt       =  input.int       (735,        "Take Profit (Ticks)",  group= "Risk")
+stopOnTime      =  input.bool      (false,      "Stop on Hours",        group= "Risk")
+stopHours       =  input.int       (100,        "Stop Loss Hours",      group= "Risk")
+
+// ================================== //
+// ----> Variable Calculations <----- //
+// ================================== //
+
+timePeriod                          =   time >= start and time <= finish
+tradeHours                          =   not na(time(timeframe.period, "0700-2100:23456"))
+window                              =   timePeriod and tradeHours
+
+ema200                              =   ta.ema(close, 200)
+activeMicroSecs                     =   strategy.opentrades > 0 ? (time - strategy.opentrades.entry_time(strategy.opentrades-1)) : 0
+activeHours                         =   math.ceil(activeMicroSecs/3600000)
+timeUp                              =   (activeHours > stopHours) and stopOnTime
+cutOffLong                          =   ta.falling(ema200, 20) and strategy.position_avg_price > open and timeUp
+cutOffShort                         =   ta.rising(ema200, 20) and strategy.position_avg_price < open and timeUp
+
+[macd, signal, hist]                =   ta.macd(close, 12, 26, 9)
+rsi_                                =   ta.rsi(close, 14)
+wasOversold                         =   ta.barssince(rsi_ <= 30) <= lookback
+wasOverbought                       =   ta.barssince(rsi_ >= 70) <= lookback
+crossoverBull                       =   ta.crossover(macd, signal)
+crossoverBear                       =   ta.crossunder(macd, signal)
+
+longSignal                          =   wasOversold and crossoverBull and window
+shortSignal                         =   wasOverbought and crossoverBear and window
+
+comm                                =   "Hours: "+str.tostring(activeHours)
+
+// ================================== //
+// -----------> Visuals <------------ //
+// ================================== //
+
+bgcolor(color=tradeHours ? color.new(color.green,80) : color.new(color.red,80), title="Session")
+
+// ================================== //
+// ----------> Strategies <---------- //
+// ================================== //
+
+// --> Long Strategy <--
+if longSignal and goLong
+    strategy.entry("Long", strategy.long, comment="Open Long")
+
+strategy.close("Long", when=(shortSignal or cutOffLong), comment="Close Long "+comm)
+
+// --> Short Strategy <--
+if shortSignal and goShort
+    strategy.entry("Short", strategy.short, comment="Open Short")
+
+strategy.close("Short", when=(longSignal or cutOffShort), comment="Close Short "+comm)
+
+if sellOnProfit
+    strategy.exit("Long",   "Long",     profit=profitAmt, comment="Long Exit "+comm,    when=tradeHours)
+    strategy.exit("Short",  "Short",    profit=profitAmt, comment="Short Exit "+comm,   when=tradeHours)
+
+if (not timePeriod and tradeHours)
+    strategy.close_all()
