@@ -1,0 +1,33 @@
+//@version=6
+indicator("Passive buy", shorttitle="Passive", overlay=true, timeframe="W")
+pctBelow = 0.05
+multiPct = 1 - pctBelow
+
+var float lastBuyPrice = na
+
+fiftyTwoWeekHigh = ta.highest(high, 52)
+percentBelowHigh = fiftyTwoWeekHigh * multiPct
+percentBelowLastBuy = lastBuyPrice * multiPct
+
+touchedFiftyTwoWeekHigh = not na(fiftyTwoWeekHigh) and high == fiftyTwoWeekHigh
+priceIsChopFromHigh = not na(fiftyTwoWeekHigh) and close <= percentBelowHigh
+priceIsChopFromLastBuy = na(lastBuyPrice) or close <= percentBelowLastBuy
+
+buySignal = priceIsChopFromHigh and priceIsChopFromLastBuy
+
+if touchedFiftyTwoWeekHigh
+    lastBuyPrice := na
+
+if buySignal
+    lastBuyPrice := close
+
+plot(fiftyTwoWeekHigh, "52w High", color=color.orange, linewidth=2)
+plot(lastBuyPrice, "Last Buy", color=color.teal, linewidth=2, style=plot.style_stepline)
+
+plotshape(
+     buySignal,
+     title="Buy",
+     style=shape.arrowup,
+     location=location.belowbar,
+     color=color.new(color.red, 0),
+     size=size.normal)
